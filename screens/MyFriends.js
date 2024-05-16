@@ -14,31 +14,32 @@ export default class Login extends React.Component {
   }
 
   fetchFriends = async () => {
-    try {
-      const auth = getAuth();
+    const auth = getAuth();
       const userId = auth.currentUser.uid;
 
-      const snapshot = await get(ref(db, "/users/" + userId));
-      const temp = snapshot.val().myFriends || [];
-      let myFriends = [];
+      var dbRef = ref(db, "/users/" + userId);
 
-      // Use Promise.all to wait for all asynchronous operations to complete
-      await Promise.all(
-        temp.map(async (key) => {
-          const userSnapshot = await get(ref(db, "/users/" + key));
-          myFriends.push({
-            key: key,
-            value: userSnapshot.val(),
+      onValue(dbRef, (snapshot) => {
+        temp = snapshot.val().myFriends;
+        let myFriends = [];
+        if (temp) {
+          Promise.all(
+            temp.map((key) => {
+              return new Promise((resolve, reject) => {
+                onValue(ref(db, "/users/" + key), (snapshot) => {
+                  myFriends.push({
+                    key: key,
+                    value: snapshot.val(),
+                  });
+                  resolve();
+                });
+              });
+            })
+          ).then(() => {
+            this.setState({ myFriends: myFriends});
           });
-        })
-      );
-
-      this.setState({ myFriends: myFriends });
-    } catch (error) {
-      console.error("Error fetching friends:", error);
-      // Handle error (e.g., show an alert)
-      Alert.alert("Error", "Failed to fetch friends. Please try again.");
-    }
+        }
+      });
   };
   componentDidMount() {
     this.fetchFriends();
